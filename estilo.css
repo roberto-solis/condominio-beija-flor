@@ -11,9 +11,9 @@
   --texto: #0F172A;
   --texto-2: #475569;
   --muted: #64748B;
-  --primaria: #2563EB;
-  --primaria-hover: #1D4ED8;
-  --primaria-suave: #DBEAFE;
+  --primaria: #367B4F;
+  --primaria-hover: #2B6340;
+  --primaria-suave: #DCEFE3;
   --sucesso: #16A34A;
   --sucesso-hover: #15803D;
   --sucesso-suave: #DCFCE7;
@@ -28,7 +28,7 @@
   --ambar-suave: #FEF3C7;
   --neutro: #64748B;
   --neutro-hover: #475569;
-  --marca: #1E3A8A;
+  --marca: #1F4A2F;
   --raio: 10px;
   --sombra: 0 1px 2px rgba(15, 23, 42, .06), 0 1px 3px rgba(15, 23, 42, .08);
   --topo-seguro: env(safe-area-inset-top, 0px);
@@ -125,7 +125,7 @@ select { appearance: none; -webkit-appearance: none; padding-right: 28px; cursor
   mask-image: linear-gradient(to bottom, #000 72%, transparent);
 }
 .login-marca h1 { font-size: 40px; line-height: 1.1; margin: 0 0 12px; }
-.login-marca p { color: #BFDBFE; margin: 0; font-size: 16px; }
+.login-marca p { color: #C8E6D2; margin: 0; font-size: 16px; }
 .login-form {
   flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 16px;
   width: 100%; max-width: 420px; margin: 0 auto; padding: 32px 24px;
@@ -494,7 +494,7 @@ body:has(.fundo-modal) .carregando { display: none; }
     right: 18px; bottom: calc(80px + var(--baixo-seguro));
     width: 58px; height: 58px; border-radius: 50%; border: 0;
     background: var(--primaria); color: #fff; font-size: 30px;
-    box-shadow: 0 6px 18px rgba(37, 99, 235, .45);
+    box-shadow: 0 6px 18px rgba(54, 123, 79, .45);
   }
 
   .grade-saldos { grid-template-columns: 1fr; gap: 6px; }

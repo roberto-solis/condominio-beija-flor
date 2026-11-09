@@ -415,15 +415,17 @@ body:has(.fundo-modal) .carregando { display: none; }
   input, select { height: 46px; font-size: 16px; }   /* 16px: o iPhone não dá zoom */
 
   .login { flex-direction: column; }
-  /* celular: foto alta, mostrando até a rua; o nome fica numa faixa verde logo abaixo */
+  /* celular: foto inteira (até a rua) sem passar de 1/3 da tela; o nome fica numa faixa verde logo abaixo */
   .login-marca { flex: 0 0 auto; }
-  .login-foto { position: relative; height: 52vh; min-height: 320px; max-height: 560px; background-position: center bottom; }
+  .login-foto { position: relative; height: min(74vw, 34vh); min-height: 200px; background-position: center bottom; }
   .login-foto::after { background: linear-gradient(to bottom, rgba(31, 74, 47, 0) 88%, rgba(31, 74, 47, .9)); }
-  .login-textos { padding: 12px 20px 18px; text-shadow: none; }
-  .login-marca h1 { font-size: 30px; margin: 10px 0 6px; }
+  .login-textos { padding: 8px 20px 12px; text-shadow: none; }
+  .login-marca h1 { font-size: 26px; margin: 4px 0 4px; }
   .login-marca h1 br { display: none; }
-  .login-marca p { font-size: 14px; }
-  .login-form { justify-content: flex-start; padding-top: 24px; }
+  .login-marca p { font-size: 13px; }
+  .login-marca p br { display: none; }
+  .login-form { justify-content: flex-start; padding-top: 16px; gap: 12px; }
+  .login-form h2 { font-size: 23px; }
 
   .topo { justify-content: space-between; padding-left: 14px; }
   .topo-titulo { font-size: 19px; }

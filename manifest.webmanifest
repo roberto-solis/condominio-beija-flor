@@ -3,6 +3,7 @@
   "short_name": "Beija Flor",
   "description": "Controle das contas, acertos e fundo de reserva entre os moradores.",
   "lang": "pt-BR",
+  "id": "/condominio-beija-flor/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

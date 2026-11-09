@@ -308,12 +308,12 @@ function saldoFundoAntesDe(linhas, dia) {
 // Palavras sem acento e em minúsculas ("ÁGUA", "agua" e "Água" contam igual).
 // Com * no fim vale o começo da palavra ("faxin*" pega faxina e faxineira).
 const CATEGORIAS_GASTO = [
-  { nome: "Energia", cor: "#F59E0B", chaves: ["energia", "cemig", "luz"] },
-  { nome: "Água", cor: "#0EA5E9", chaves: ["agua", "copasa", "esgoto", "saae"] },
-  { nome: "Gás", cor: "#F97316", chaves: ["gas", "botijao", "botijoes"] },
-  { nome: "Limpeza", cor: "#14B8A6", chaves: ["limpeza", "faxin*"] },
-  { nome: "Jardinagem", cor: "#22C55E", chaves: ["jardin*", "jardim", "poda", "grama"] },
-  { nome: "Manutenção", cor: "#6366F1", chaves: ["manutenc*", "conserto*", "reparo*", "pintura", "bomba", "portao", "eletricista", "encanador"] },
+  { nome: "Energia", cor: "#F59E0B", chaves: ["energia", "cemig", "luz", "lampada*", "plafon", "led"] },
+  { nome: "Água", cor: "#0EA5E9", chaves: ["agua", "copasa", "esgoto", "saae", "dmae"] },
+  { nome: "Gás", cor: "#F97316", chaves: ["gas", "gaz", "botija*", "botijao", "botijoes"] },
+  { nome: "Limpeza", cor: "#14B8A6", chaves: ["limpeza", "faxin*", "lavacao", "detergente", "lixo"] },
+  { nome: "Jardinagem", cor: "#22C55E", chaves: ["jardin*", "jardim", "poda", "grama", "floreira*", "substrato", "roundup", "brita"] },
+  { nome: "Manutenção", cor: "#6366F1", chaves: ["manutenc*", "conserto*", "reparo*", "pintura", "bomba", "portao", "eletricista", "encanador", "calha", "vazamento", "desentup*", "conex*"] },
   { nome: "Outros", cor: "#94A3B8", chaves: [] },
 ];
 

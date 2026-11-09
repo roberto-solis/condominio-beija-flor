@@ -1,7 +1,7 @@
 // Guarda as telas do app no aparelho para abrir rápido. Os dados (Supabase) nunca ficam guardados aqui.
 // Ao publicar uma versão nova, troque o número abaixo.
 const PREFIXO = "cbf-web-";
-const VERSAO = PREFIXO + "3";
+const VERSAO = PREFIXO + "5";
 const ARQUIVOS = [
   "./", "index.html", "estilo.css", "calculos.js", "app.js", "manifest.webmanifest",
   "icones/icone-192.png", "icones/apple-touch-icon.png", "icones/foto-predio.jpg",

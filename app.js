@@ -26,7 +26,8 @@ const estado = {
   pagina: "lanc",
   mapaLogin: {},              // nome -> {email, tem_senha}
   alertaFechado: false,
-  verAntesDoAcerto: false,    // aba Acertos: cartões como estavam antes do último acerto (só consulta)
+  verAntesDoAcerto: false,    // aba Acertos: cartões como estavam antes de um acerto (só consulta)
+  antesDe: 0,                 // data (AAAAMMDD) do acerto usado nessa vista
 };
 
 // =========================================================================
@@ -438,6 +439,7 @@ class Lista {
     this.corpo.querySelectorAll(".linha").forEach((l) =>
       l.classList.toggle("selecionada", this.selecionados.has(Number(l.dataset.id))));
     this.atualizarBotoes();
+    if (this.cfg.aoSelecionar) this.cfg.aoSelecionar();
   }
 
   async abrirAcoes(id) {
@@ -449,12 +451,15 @@ class Lista {
     const escolha = await modal({
       conteudo: resumo, deBaixo: true,
       botoes: [
+        ...(this.cfg.acoesExtras || []).map((a) => ({ texto: a.texto, classe: a.classe || "btn-contorno", valor: a.valor })),
         { texto: "✎  Alterar", classe: "btn-ambar", valor: "alterar" },
         { texto: "🗑  Excluir", classe: "btn-perigo", valor: "excluir" },
         { texto: "Cancelar", classe: "btn-contorno", valor: null, cancelar: true },
       ],
     });
-    if (escolha === "alterar") await this.cfg.aoEditar(id);
+    const extra = (this.cfg.acoesExtras || []).find((a) => a.valor === escolha);
+    if (extra) await extra.fazer(id);
+    else if (escolha === "alterar") await this.cfg.aoEditar(id);
     else if (escolha === "excluir") await this.cfg.aoExcluir([id]);
   }
 }
@@ -819,7 +824,7 @@ function ehAcertoEntreMoradores(l, cadastro) {
   return !!(p.recebedor && p.pagador && nomes.includes(p.recebedor.toUpperCase()) && nomes.includes(p.pagador.toUpperCase()));
 }
 
-// Último acerto já valendo nos saldos de hoje. Acertos do mesmo dia contam como um só.
+// Último acerto já valendo nos saldos de hoje (só acertos entre moradores).
 function ultimoAcerto(cadastro) {
   const h = hoje();
   const limite = chaveData({ a: h.a, m: h.m, d: diasNoMes(h.a, h.m) });
@@ -832,33 +837,73 @@ function ultimoAcerto(cadastro) {
   return maior;
 }
 
+const ehLinhaDeAcerto = (l) => l.tipo === "Ajuste" && l.destinacao === "Manutenção";
+
+// Data (AAAAMMDD) do acerto selecionado no histórico, se houver um só
+function chaveDoAcertoSelecionado() {
+  if (!listas.acer) return 0;
+  const sel = [...listas.acer.selecionados];
+  if (sel.length !== 1) return 0;
+  const l = estado.todos.find((x) => x.id === sel[0]);
+  const dt = l && ehLinhaDeAcerto(l) ? paraData(l.data) : null;
+  return dt ? chaveData(dt) : 0;
+}
+
+const textoDaChave = (k) => `${doisDig(k % 100)}/${doisDig(Math.floor(k / 100) % 100)}/${Math.floor(k / 10000)}`;
+
+// Saldos como estavam antes dos acertos do dia k: tudo até esse dia, sem os acertos desse dia
+function saldosAntesDe(k, cadastro) {
+  const linhas = estado.todos.filter((l) => {
+    const dt = paraData(l.data);
+    if (!dt || chaveData(dt) > k) return false;
+    return !(ehLinhaDeAcerto(l) && chaveData(dt) === k);
+  });
+  const ref = { a: Math.floor(k / 10000), m: Math.floor(k / 100) % 100, d: k % 100 };
+  return calcularSaldos(linhas, cadastro, ref)["Manutenção"];
+}
+
+// Clique numa linha do histórico: com a vista ligada, troca para o acerto clicado
+function aoSelecionarAcerto() {
+  if (estado.verAntesDoAcerto) {
+    const k = chaveDoAcertoSelecionado();
+    if (k) estado.antesDe = k;
+  }
+  desenharAcertos();
+}
+
+// Celular: opção "Ver saldos antes deste acerto" no menu da linha
+function verAntesDoAcerto(id) {
+  listas.acer.selecionados = new Set([id]);
+  estado.verAntesDoAcerto = true;
+  estado.antesDe = chaveDoAcertoSelecionado() || ultimoAcerto(estado.cadastro);
+  desenharAcertos();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 function desenharAcertos() {
   if (!estado.cadastro) return;
   const c = estado.cadastro;
   const atuais = calcularSaldos(estado.todos, c)["Manutenção"];
   estado.saldos = atuais;                       // a aba Moradores usa sempre os saldos de hoje
 
-  // Vista "antes do último acerto": só para consulta, nada é gravado
-  const chaveUltimo = ultimoAcerto(c);
-  if (!chaveUltimo) estado.verAntesDoAcerto = false;
+  // Vista "antes do acerto": só para consulta, nada é gravado
+  const kSelecionado = chaveDoAcertoSelecionado();
+  const kUltimo = ultimoAcerto(c);
+  if (!kSelecionado && !kUltimo) estado.verAntesDoAcerto = false;
   const antes = estado.verAntesDoAcerto;
-  let saldos = atuais;
-  if (antes) {
-    const semUltimo = estado.todos.filter((l) => {
-      const dt = paraData(l.data);
-      return !(ehAcertoEntreMoradores(l, c) && dt && chaveData(dt) === chaveUltimo);
-    });
-    saldos = calcularSaldos(semUltimo, c)["Manutenção"];
-  }
-  const dataUltimo = chaveUltimo
-    ? `${doisDig(chaveUltimo % 100)}/${doisDig(Math.floor(chaveUltimo / 100) % 100)}/${Math.floor(chaveUltimo / 10000)}` : "";
+  if (antes && !estado.antesDe) estado.antesDe = kSelecionado || kUltimo;
+  if (!antes) estado.antesDe = 0;
+  const saldos = antes ? saldosAntesDe(estado.antesDe, c) : atuais;
+
   const botao = $("acer-antes");
-  botao.disabled = !chaveUltimo;
+  botao.disabled = !kSelecionado && !kUltimo;
   botao.textContent = antes ? "✕ Voltar aos saldos de hoje"
-    : chaveUltimo ? `🕘 Ver saldos antes do último acerto (${dataUltimo})` : "🕘 Nenhum acerto registrado ainda";
+    : kSelecionado ? `🕘 Ver saldos antes do acerto selecionado (${textoDaChave(kSelecionado)})`
+    : kUltimo ? `🕘 Ver saldos antes do último acerto (${textoDaChave(kUltimo)})` : "🕘 Nenhum acerto registrado ainda";
   botao.classList.toggle("ativo", antes);
   $("acer-antes-aviso").hidden = !antes;
-  $("acer-antes-aviso").textContent = antes ? `Como estavam os saldos antes do acerto de ${dataUltimo}. Só para consulta.` : "";
+  $("acer-antes-aviso").textContent = antes
+    ? `Como estavam os saldos antes do acerto de ${textoDaChave(estado.antesDe)}. Só para consulta.` : "";
   $("acer-bloco-sugestoes").hidden = antes;
 
   // Cards: moradores ativos + ex-moradores que ainda têm saldo a acertar
@@ -1543,6 +1588,8 @@ function criarListas() {
     info: (l) => `${l.data} · ${l._texto}`,
     resumo: (l) => [l._fluxo, `${l.data} · ${l._texto} · ${valorTexto(l.valores)}`],
     vazio: "Nenhum acerto registrado.", aoEditar: editarAcerto, aoExcluir: excluirAcerto,
+    aoSelecionar: aoSelecionarAcerto,
+    acoesExtras: [{ texto: "🕘  Ver saldos antes deste acerto", valor: "antes", fazer: (id) => verAntesDoAcerto(id) }],
   });
   listas.fundo = new Lista({
     id: "fundo-tabela", form: $("fundo-form"),

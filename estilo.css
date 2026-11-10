@@ -288,15 +288,15 @@ main { flex: 1; padding: 10px 12px 12px; min-height: 0; }
 .saldo-valor.neg { color: var(--perigo); }
 .bloco-sugestoes { padding: 10px 12px; }
 /* vista "antes do último acerto": cartões em âmbar, só para consulta */
-.barra-antes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.barra-antes .btn { height: 36px; font-size: 14px; }
-.barra-antes .btn.ativo { background: var(--ambar); border-color: var(--ambar); color: #fff; }
 .aviso-antes {
-  flex: 1 1 220px; padding: 6px 10px; border-radius: 8px; font-size: 13px; font-weight: 600;
-  background: var(--ambar-suave); color: var(--ambar-hover); border: 1px solid #FCD34D;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 8px;
+  font-size: 13px; font-weight: 600; background: var(--ambar-suave); color: var(--ambar-hover); border: 1px solid #FCD34D;
 }
-.grade-saldos.antes .saldo-socio { background: #FEF3C7; border-color: #F59E0B; box-shadow: 0 0 0 1px #F59E0B inset; }
-.grade-saldos.antes .saldo-topo .avatar { background: #FDE68A; }
+.aviso-antes[hidden] { display: none; }
+.aviso-antes span { flex: 1; min-width: 200px; }
+.aviso-antes .btn { height: 32px; font-size: 13px; }
+.aviso-antes:not([hidden]) + .grade-saldos .saldo-socio { background: #FEF3C7; border-color: #F59E0B; box-shadow: 0 0 0 1px #F59E0B inset; }
+.aviso-antes:not([hidden]) + .grade-saldos .saldo-topo .avatar { background: #FDE68A; }
 .bloco-cab { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 .bloco-cab h3 { font-size: 16px; }
 .bloco-cab .suave { font-size: 13px; }
@@ -516,6 +516,7 @@ body:has(.fundo-modal) .carregando { display: none; }
   }
 
   .grade-saldos { grid-template-columns: 1fr; gap: 6px; }
+  .aviso-antes .btn { width: 100%; height: 40px; }
   .saldo-socio { display: flex; align-items: center; gap: 10px; }
   .saldo-topo { flex: 1; display: grid; grid-template-columns: auto 1fr; gap: 0 10px; }
   .saldo-topo .avatar { grid-row: span 2; width: 34px; height: 34px; font-size: 12px; }

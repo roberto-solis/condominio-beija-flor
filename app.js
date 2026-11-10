@@ -26,8 +26,7 @@ const estado = {
   pagina: "lanc",
   mapaLogin: {},              // nome -> {email, tem_senha}
   alertaFechado: false,
-  verAntesDoAcerto: false,    // aba Acertos: cartões como estavam antes de um acerto (só consulta)
-  antesDe: 0,                 // data (AAAAMMDD) do acerto usado nessa vista
+  acertoVisto: null,          // aba Acertos: id do acerto cujos "saldos de antes" estão na tela
 };
 
 // =========================================================================
@@ -580,10 +579,7 @@ function desenharTudo() {
 }
 
 function mostrarPagina(chave) {
-  if (estado.verAntesDoAcerto && chave !== "acer") {   // saindo da aba: volta aos saldos de hoje
-    estado.verAntesDoAcerto = false;
-    desenharAcertos();
-  }
+  if (estado.acertoVisto && chave !== "acer") verSaldosAntes(null);   // saindo da aba: volta aos saldos de hoje
   estado.pagina = chave;
   document.querySelectorAll(".pagina").forEach((p) => p.classList.toggle("ativa", p.id === "pagina-" + chave));
   document.querySelectorAll(".aba").forEach((b) => b.classList.toggle("ativa", b.dataset.pagina === chave));
@@ -816,68 +812,29 @@ function partesDoAjuste(descricao) {
   };
 }
 
-// Acerto entre dois moradores (fica de fora o que mexe só num apartamento, como "DIFERENÇA DA PLANILHA")
-function ehAcertoEntreMoradores(l, cadastro) {
-  if (l.tipo !== "Ajuste" || l.destinacao !== "Manutenção") return false;
-  const p = partesDoAjuste(l.descricao);
-  const nomes = cadastro.todos.map((n) => n.toUpperCase());
-  return !!(p.recebedor && p.pagador && nomes.includes(p.recebedor.toUpperCase()) && nomes.includes(p.pagador.toUpperCase()));
-}
-
-// Último acerto já valendo nos saldos de hoje (só acertos entre moradores).
-function ultimoAcerto(cadastro) {
-  const h = hoje();
-  const limite = chaveData({ a: h.a, m: h.m, d: diasNoMes(h.a, h.m) });
-  let maior = 0;
-  for (const l of estado.todos) {
-    if (!ehAcertoEntreMoradores(l, cadastro)) continue;
-    const dt = paraData(l.data);
-    if (dt && chaveData(dt) <= limite && chaveData(dt) > maior) maior = chaveData(dt);
-  }
-  return maior;
-}
-
 const ehLinhaDeAcerto = (l) => l.tipo === "Ajuste" && l.destinacao === "Manutenção";
 
-// Data (AAAAMMDD) do acerto selecionado no histórico, se houver um só
-function chaveDoAcertoSelecionado() {
-  if (!listas.acer) return 0;
-  const sel = [...listas.acer.selecionados];
-  if (sel.length !== 1) return 0;
-  const l = estado.todos.find((x) => x.id === sel[0]);
-  const dt = l && ehLinhaDeAcerto(l) ? paraData(l.data) : null;
-  return dt ? chaveData(dt) : 0;
-}
-
-const textoDaChave = (k) => `${doisDig(k % 100)}/${doisDig(Math.floor(k / 100) % 100)}/${Math.floor(k / 10000)}`;
-
-// Saldos como estavam antes dos acertos do dia k: tudo até esse dia, sem os acertos desse dia
-function saldosAntesDe(k, cadastro) {
-  const linhas = estado.todos.filter((l) => {
+// Saldos de logo antes de um acerto: tudo o que tem data anterior; no mesmo dia, os gastos
+// e os acertos gravados antes dele. É só para consultar: nada é gravado.
+function saldosAntesDoAcerto(acerto, cadastro) {
+  const dia = paraData(acerto.data) || hoje();
+  const k = chaveData(dia);
+  const anteriores = estado.todos.filter((l) => {
+    if (l.id === acerto.id) return false;
     const dt = paraData(l.data);
-    if (!dt || chaveData(dt) > k) return false;
-    return !(ehLinhaDeAcerto(l) && chaveData(dt) === k);
+    if (!dt) return false;
+    const kl = chaveData(dt);
+    if (kl !== k) return kl < k;
+    return !ehLinhaDeAcerto(l) || l.id < acerto.id;
   });
-  const ref = { a: Math.floor(k / 10000), m: Math.floor(k / 100) % 100, d: k % 100 };
-  return calcularSaldos(linhas, cadastro, ref)["Manutenção"];
+  return calcularSaldos(anteriores, cadastro, dia)["Manutenção"];
 }
 
-// Clique numa linha do histórico: com a vista ligada, troca para o acerto clicado
-function aoSelecionarAcerto() {
-  if (estado.verAntesDoAcerto) {
-    const k = chaveDoAcertoSelecionado();
-    if (k) estado.antesDe = k;
-  }
+// Escolher um acerto no histórico (clique no computador; "Ver saldos de antes" no celular)
+function verSaldosAntes(id) {
+  estado.acertoVisto = id || null;
   desenharAcertos();
-}
-
-// Celular: opção "Ver saldos antes deste acerto" no menu da linha
-function verAntesDoAcerto(id) {
-  listas.acer.selecionados = new Set([id]);
-  estado.verAntesDoAcerto = true;
-  estado.antesDe = chaveDoAcertoSelecionado() || ultimoAcerto(estado.cadastro);
-  desenharAcertos();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  if (id && ehCelular()) window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function desenharAcertos() {
@@ -886,25 +843,17 @@ function desenharAcertos() {
   const atuais = calcularSaldos(estado.todos, c)["Manutenção"];
   estado.saldos = atuais;                       // a aba Moradores usa sempre os saldos de hoje
 
-  // Vista "antes do acerto": só para consulta, nada é gravado
-  const kSelecionado = chaveDoAcertoSelecionado();
-  const kUltimo = ultimoAcerto(c);
-  if (!kSelecionado && !kUltimo) estado.verAntesDoAcerto = false;
-  const antes = estado.verAntesDoAcerto;
-  if (antes && !estado.antesDe) estado.antesDe = kSelecionado || kUltimo;
-  if (!antes) estado.antesDe = 0;
-  const saldos = antes ? saldosAntesDe(estado.antesDe, c) : atuais;
-
-  const botao = $("acer-antes");
-  botao.disabled = !kSelecionado && !kUltimo;
-  botao.textContent = antes ? "✕ Voltar aos saldos de hoje"
-    : kSelecionado ? `🕘 Ver saldos antes do acerto selecionado (${textoDaChave(kSelecionado)})`
-    : kUltimo ? `🕘 Ver saldos antes do último acerto (${textoDaChave(kUltimo)})` : "🕘 Nenhum acerto registrado ainda";
-  botao.classList.toggle("ativo", antes);
-  $("acer-antes-aviso").hidden = !antes;
-  $("acer-antes-aviso").textContent = antes
-    ? `Como estavam os saldos antes do acerto de ${textoDaChave(estado.antesDe)}. Só para consulta.` : "";
-  $("acer-bloco-sugestoes").hidden = antes;
+  const acerto = estado.acertoVisto && estado.todos.find((l) => l.id === estado.acertoVisto && ehLinhaDeAcerto(l));
+  if (!acerto) estado.acertoVisto = null;
+  const antes = !!acerto;
+  const saldos = antes ? saldosAntesDoAcerto(acerto, c) : atuais;
+  if (antes) {
+    const p = partesDoAjuste(acerto.descricao);
+    $("acer-antes-texto").textContent =
+      `👁 Saldos de antes do acerto de ${acerto.data} · ${p.fluxo || acerto.descricao} · ${valorTexto(acerto.valores)}. Só para consulta.`;
+  }
+  $("acer-antes").hidden = !antes;
+  $("acer-bloco-sugestoes").hidden = antes;     // as sugestões são de hoje
 
   // Cards: moradores ativos + ex-moradores que ainda têm saldo a acertar
   const ativos = c.ativosHoje;
@@ -942,7 +891,8 @@ function desenharAcertos() {
       const p = partesDoAjuste(l.descricao);
       const dt = paraData(l.data);
       return { ...l, _texto: p.texto, _fluxo: p.fluxo || l.descricao || "", _dt: dt ? chaveData(dt) : 0 };
-    });
+    })
+    .sort((x, y) => y._dt - x._dt || y.id - x.id);   // mais recente primeiro (o histórico importado não veio em ordem)
   listas.acer.definir(linhas);
 }
 
@@ -966,13 +916,14 @@ function limparAcerto(redesenhar = true) {
   $("acer-desc").value = "";
   $("acer-valor").value = "";
   listas.acer.selecionados.clear();
+  if (estado.acertoVisto) verSaldosAntes(null);
   if (redesenhar) listas.acer.desenhar();
 }
 
 async function salvarAcerto() {
   const f = lerValorEData("acer", "Insira um valor válido para o acerto.");
   if (!f) return;
-  estado.verAntesDoAcerto = false;              // depois de gravar, mostra os saldos de hoje
+  estado.acertoVisto = null;                    // depois de gravar, mostra os saldos de hoje
   const recebedor = $("acer-recebedor").value;
   const pagador = $("acer-pagador").value;
   if (recebedor === pagador) {
@@ -1588,8 +1539,11 @@ function criarListas() {
     info: (l) => `${l.data} · ${l._texto}`,
     resumo: (l) => [l._fluxo, `${l.data} · ${l._texto} · ${valorTexto(l.valores)}`],
     vazio: "Nenhum acerto registrado.", aoEditar: editarAcerto, aoExcluir: excluirAcerto,
-    aoSelecionar: aoSelecionarAcerto,
-    acoesExtras: [{ texto: "🕘  Ver saldos antes deste acerto", valor: "antes", fazer: (id) => verAntesDoAcerto(id) }],
+    aoSelecionar: () => {
+      const sel = [...listas.acer.selecionados];
+      verSaldosAntes(sel.length === 1 ? sel[0] : null);
+    },
+    acoesExtras: [{ texto: "👁  Ver saldos de antes", classe: "btn-primario", valor: "antes", fazer: (id) => verSaldosAntes(id) }],
   });
   listas.fundo = new Lista({
     id: "fundo-tabela", form: $("fundo-form"),
@@ -1696,9 +1650,10 @@ function ligarEventos() {
   ligarFiltros("lanc", filtrarLanc);
   ligarFiltros("fundo", filtrarFundo);
   $("fundo-alerta-fechar").addEventListener("click", () => { estado.alertaFechado = true; $("fundo-alerta").hidden = true; });
-  $("acer-antes").addEventListener("click", () => {
-    estado.verAntesDoAcerto = !estado.verAntesDoAcerto;
-    desenharAcertos();
+  $("acer-antes-voltar").addEventListener("click", () => {
+    listas.acer.selecionados.clear();
+    listas.acer.desenhar();
+    verSaldosAntes(null);
   });
   $("evol-atualizar").addEventListener("click", () => acao(async () => { await recarregar(); toast("Gráfico atualizado"); }));
   $("soc-divisao-btn").addEventListener("click", () => abrirDivisao());

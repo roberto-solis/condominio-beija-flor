@@ -26,6 +26,7 @@ const estado = {
   pagina: "lanc",
   mapaLogin: {},              // nome -> {email, tem_senha}
   alertaFechado: false,
+  verAntesDoAcerto: false,    // aba Acertos: cartões como estavam antes do último acerto (só consulta)
 };
 
 // =========================================================================
@@ -574,6 +575,10 @@ function desenharTudo() {
 }
 
 function mostrarPagina(chave) {
+  if (estado.verAntesDoAcerto && chave !== "acer") {   // saindo da aba: volta aos saldos de hoje
+    estado.verAntesDoAcerto = false;
+    desenharAcertos();
+  }
   estado.pagina = chave;
   document.querySelectorAll(".pagina").forEach((p) => p.classList.toggle("ativa", p.id === "pagina-" + chave));
   document.querySelectorAll(".aba").forEach((b) => b.classList.toggle("ativa", b.dataset.pagina === chave));
@@ -806,15 +811,60 @@ function partesDoAjuste(descricao) {
   };
 }
 
+// Acerto entre dois moradores (fica de fora o que mexe só num apartamento, como "DIFERENÇA DA PLANILHA")
+function ehAcertoEntreMoradores(l, cadastro) {
+  if (l.tipo !== "Ajuste" || l.destinacao !== "Manutenção") return false;
+  const p = partesDoAjuste(l.descricao);
+  const nomes = cadastro.todos.map((n) => n.toUpperCase());
+  return !!(p.recebedor && p.pagador && nomes.includes(p.recebedor.toUpperCase()) && nomes.includes(p.pagador.toUpperCase()));
+}
+
+// Último acerto já valendo nos saldos de hoje. Acertos do mesmo dia contam como um só.
+function ultimoAcerto(cadastro) {
+  const h = hoje();
+  const limite = chaveData({ a: h.a, m: h.m, d: diasNoMes(h.a, h.m) });
+  let maior = 0;
+  for (const l of estado.todos) {
+    if (!ehAcertoEntreMoradores(l, cadastro)) continue;
+    const dt = paraData(l.data);
+    if (dt && chaveData(dt) <= limite && chaveData(dt) > maior) maior = chaveData(dt);
+  }
+  return maior;
+}
+
 function desenharAcertos() {
   if (!estado.cadastro) return;
   const c = estado.cadastro;
-  const saldos = calcularSaldos(estado.todos, c)["Manutenção"];
-  estado.saldos = saldos;
+  const atuais = calcularSaldos(estado.todos, c)["Manutenção"];
+  estado.saldos = atuais;                       // a aba Moradores usa sempre os saldos de hoje
+
+  // Vista "antes do último acerto": só para consulta, nada é gravado
+  const chaveUltimo = ultimoAcerto(c);
+  if (!chaveUltimo) estado.verAntesDoAcerto = false;
+  const antes = estado.verAntesDoAcerto;
+  let saldos = atuais;
+  if (antes) {
+    const semUltimo = estado.todos.filter((l) => {
+      const dt = paraData(l.data);
+      return !(ehAcertoEntreMoradores(l, c) && dt && chaveData(dt) === chaveUltimo);
+    });
+    saldos = calcularSaldos(semUltimo, c)["Manutenção"];
+  }
+  const dataUltimo = chaveUltimo
+    ? `${doisDig(chaveUltimo % 100)}/${doisDig(Math.floor(chaveUltimo / 100) % 100)}/${Math.floor(chaveUltimo / 10000)}` : "";
+  const botao = $("acer-antes");
+  botao.disabled = !chaveUltimo;
+  botao.textContent = antes ? "✕ Voltar aos saldos de hoje"
+    : chaveUltimo ? `🕘 Ver saldos antes do último acerto (${dataUltimo})` : "🕘 Nenhum acerto registrado ainda";
+  botao.classList.toggle("ativo", antes);
+  $("acer-antes-aviso").hidden = !antes;
+  $("acer-antes-aviso").textContent = antes ? `Como estavam os saldos antes do acerto de ${dataUltimo}. Só para consulta.` : "";
+  $("acer-bloco-sugestoes").hidden = antes;
 
   // Cards: moradores ativos + ex-moradores que ainda têm saldo a acertar
   const ativos = c.ativosHoje;
   const grade = $("acer-saldos");
+  grade.classList.toggle("antes", antes);
   grade.replaceChildren();
   for (const socio of c.todos.filter((p) => ativos.includes(p) || Math.abs(saldos[p] || 0) > 0.05)) {
     const valor = saldos[socio] || 0;
@@ -877,6 +927,7 @@ function limparAcerto(redesenhar = true) {
 async function salvarAcerto() {
   const f = lerValorEData("acer", "Insira um valor válido para o acerto.");
   if (!f) return;
+  estado.verAntesDoAcerto = false;              // depois de gravar, mostra os saldos de hoje
   const recebedor = $("acer-recebedor").value;
   const pagador = $("acer-pagador").value;
   if (recebedor === pagador) {
@@ -1598,6 +1649,10 @@ function ligarEventos() {
   ligarFiltros("lanc", filtrarLanc);
   ligarFiltros("fundo", filtrarFundo);
   $("fundo-alerta-fechar").addEventListener("click", () => { estado.alertaFechado = true; $("fundo-alerta").hidden = true; });
+  $("acer-antes").addEventListener("click", () => {
+    estado.verAntesDoAcerto = !estado.verAntesDoAcerto;
+    desenharAcertos();
+  });
   $("evol-atualizar").addEventListener("click", () => acao(async () => { await recarregar(); toast("Gráfico atualizado"); }));
   $("soc-divisao-btn").addEventListener("click", () => abrirDivisao());
   $("fab").addEventListener("click", () => {
